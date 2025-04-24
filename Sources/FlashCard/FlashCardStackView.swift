@@ -9,7 +9,7 @@ import SwiftUI
 
 public struct FlashCardStackView: View {
     public let cards: [FlashCard]
-    public var onDeckFinished: (() -> Void)? = nil
+    public var onDeckFinished: ((DeckStats) -> Void)? = nil
     var onSwipe: ((Bool) -> Void)? = nil
     @State private var isSwipedAway = false
     
@@ -18,8 +18,12 @@ public struct FlashCardStackView: View {
     @GestureState private var dragOffset: CGSize = .zero
     @State private var cardColor: Color = .white
     
+    @State private var correctCount: Int = 0
+    @State private var incorrectCount: Int = 0
+    @State private var cardStartTime: Date = Date()
+    @State private var results: [FlashCardResult] = []
     
-    public init(cards: [FlashCard], onDeckFinished: (() -> Void)? = nil, currentIndex: Int = 0) {
+    public init(cards: [FlashCard], onDeckFinished: ((DeckStats) -> Void)? = nil, currentIndex: Int = 0) {
         self.cards = cards
         self.onDeckFinished = onDeckFinished
         self.currentIndex = currentIndex
@@ -52,50 +56,53 @@ public struct FlashCardStackView: View {
                             }
                     )
                     .padding(.horizontal, 24)
-            } else {
-                Text("You're all done")
             }
         }
     }
     
     func swipeCard(width: CGFloat) {
+        let currentCard = cards[currentIndex]
+        let timeSpent = Date().timeIntervalSince(cardStartTime)
+        let wasCorrect: Bool
+        
         switch width {
+        //Incorrect
         case -500...(-130):
             offset = CGSize(width: -500, height: 0)
+            wasCorrect = false
             
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                currentIndex += 1
-                if currentIndex == cards.count {
-                    onDeckFinished?()
-                }
-                offset = .zero
-                cardColor = .white
-                isSwipedAway = false
-            }
-            
+        //Correct
         case 130...500:
             offset = CGSize(width: 500, height: 0)
+            wasCorrect = true
             
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                currentIndex += 1
-                if currentIndex == cards.count {
-                    onDeckFinished?()
-                }
-                offset = .zero
-                cardColor = .white
-                isSwipedAway = false
-            }
         default:
             cardColor = .white
             offset = .zero
+            return
         }
+        let result = FlashCardResult(card: currentCard, wasCorrect: wasCorrect, timeSpent: timeSpent)
+        results.append(result)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+               currentIndex += 1
+               cardStartTime = Date()
+               offset = .zero
+               cardColor = .white
+               isSwipedAway = false
+
+               if currentIndex == cards.count {
+                   onDeckFinished?(DeckStats(results: results))
+               }
+           }
+        
     }
     
     func changeColor(width: CGFloat) {
         switch width {
-        case -500...(-100):
+        case -500...(-50):
             cardColor = .red
-        case 100...500:
+        case 50...500:
             cardColor = .green
         default:
             cardColor = .white
@@ -116,4 +123,32 @@ public struct FlashCardStackView: View {
             FlashCard(frontText: "front8", backText: "back")
         ]
     )
+}
+
+public struct DeckStats: Equatable, Hashable {
+    public let results: [FlashCardResult]
+    public var correctCount: Int { results.filter { $0.wasCorrect }.count }
+    public var incorrectCount: Int { results.filter { !$0.wasCorrect }.count }
+    public var totalCards: Int { results.count }
+    public var accuracy: Double {
+        guard totalCards > 0 else { return 0 }
+        return Double(correctCount) / Double(totalCards)
+    }
+}
+public struct FlashCardResult: Hashable {
+    public let card: FlashCard
+    public let wasCorrect: Bool
+    public let timeSpent: TimeInterval
+
+    public init(card: FlashCard, wasCorrect: Bool, timeSpent: TimeInterval) {
+        self.card = card
+        self.wasCorrect = wasCorrect
+        self.timeSpent = timeSpent
+    }
+}
+
+extension DeckStats {
+    public var incorrectCards: [FlashCard] {
+        results.filter { !$0.wasCorrect }.map { $0.card }
+    }
 }

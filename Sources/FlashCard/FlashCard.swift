@@ -3,13 +3,11 @@
 
 import Foundation
 
-public struct FlashCard: Identifiable, Equatable, Hashable {
-    public let id: UUID
+public struct FlashCard: Equatable, Hashable {
     public let frontText: String
     public let backText: String
     
-    public init(id: UUID = UUID(), frontText: String, backText: String) {
-        self.id = id
+    public init( frontText: String, backText: String) {
         self.frontText = frontText
         self.backText = backText
     }

@@ -7,3 +7,14 @@
 
 import SwiftUI
 
+public struct FlashCardResult: Hashable {
+    public let card: FlashCard
+    public let wasCorrect: Bool
+    public let timeSpent: TimeInterval
+
+    public init(card: FlashCard, wasCorrect: Bool, timeSpent: TimeInterval) {
+        self.card = card
+        self.wasCorrect = wasCorrect
+        self.timeSpent = timeSpent
+    }
+}

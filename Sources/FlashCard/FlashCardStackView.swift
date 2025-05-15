@@ -23,6 +23,10 @@ public struct FlashCardStackView: View {
     @State private var cardStartTime: Date = Date()
     @State private var results: [FlashCardResult] = []
     
+    
+    @State private var showHint: Bool = false
+
+    
     public init(cards: [FlashCard], onDeckFinished: ((DeckStats) -> Void)? = nil, currentIndex: Int = 0) {
         self.cards = cards
         self.onDeckFinished = onDeckFinished
@@ -30,36 +34,145 @@ public struct FlashCardStackView: View {
     }
     
     public var body: some View {
-        VStack {
-            if currentIndex < cards.count {
-                FlashCardView(flashcard: cards[currentIndex], cardColor: cardColor)
-                    .offset(x: offset.width, y: offset.height * 0.2)
-                    .rotationEffect(.degrees(Double(offset.width / 40)))
-                    .gesture(
-                        DragGesture()
-                            .updating($dragOffset, body: { value, state, _ in
-                                state = value.translation
-                            })
-                            .onChanged { gesture in
-                                offset = gesture.translation
-                                withAnimation {
-                                    changeColor(width: offset.width)
+            VStack(spacing: 16) {
+                VStack(alignment: .center) {
+                    HStack {
+                        ForEach(0..<cards.count, id: \.self) { index in
+                            RoundedRectangle(cornerRadius: 5)
+                                .frame(height: 5)
+                                .foregroundColor(
+                                    index < currentIndex ? Color(
+                                        "accentYellowF6CA83",
+                                        bundle: .module
+                                    ) : Color("lightGreyD9D9D9", bundle: .module)
+                                )
+                        }
+                    }
+                    .padding(.top, 16)
+                    
+                    HStack {
+                        Button {
+                            print("more tapped")
+                        } label: {
+                            Image("more", bundle: .module)
+                                .resizable()
+                                .frame(width: 40, height: 40)
+                                .foregroundStyle(Color("darkGrey4E4E4E", bundle: .module))
+                        }
+                        Spacer()
+                        Button {
+                            print("queue tapped")
+                        } label: {
+                            Image("queue", bundle: .module)
+                                .resizable()
+                                .frame(width: 40, height: 40)
+                                .foregroundStyle(Color("darkGrey4E4E4E", bundle: .module))
+
+                        }
+                    }.padding(.top, 16)
+                }
+                .padding(.horizontal, 40)
+                
+                Spacer()
+
+                // Flashcard View
+                if currentIndex < cards.count {
+                    FlashCardView(flashcard: cards[currentIndex], cardColor: cardColor)
+                        .offset(x: offset.width, y: offset.height * 0.2)
+                        .rotationEffect(.degrees(Double(offset.width / 40)))
+                        .gesture(
+                            DragGesture()
+                                .updating($dragOffset) { value, state, _ in
+                                    state = value.translation
                                 }
-                            }
-                        
-                            .onEnded { _ in
-                                withAnimation {
-                                    swipeCard(width: offset.width)
-                                    changeColor(width: offset.width)
-                                    isSwipedAway = true
+                                .onChanged { gesture in
+                                    offset = gesture.translation
+                                    withAnimation {
+                                        changeColor(width: offset.width)
+                                    }
                                 }
+                                .onEnded { _ in
+                                    withAnimation {
+                                        swipeCard(width: offset.width)
+                                        changeColor(width: offset.width)
+                                        isSwipedAway = true
+                                    }
+                                }
+                        )
+                        .padding(.horizontal, 24)
+                        .onAppear {
+                            showHint = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                showHint = true
                             }
-                    )
-                    .padding(.horizontal, 24)
+                        }
+                }
+
+                // Hint Button
+                if showHint,
+                    currentIndex < cards.count
+                    //,let hintText = cards[currentIndex].hintText
+                {
+                    Button(action: {
+                        // Display hint in your preferred way
+                    }) {
+                        Text("Need a hint? 💡")
+                            .font(.subheadline)
+                            .foregroundColor(.blue)
+                    }
+                }
+
+                Spacer()
+
+                HStack {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.4)) {
+                            offset = CGSize(width: -300, height: 0)
+                            changeColor(width: offset.width)
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            swipeCard(width: offset.width)
+                            offset = .zero
+                            changeColor(width: offset.width)
+                            isSwipedAway = true
+                        }
+                    }) {
+                        VStack {
+                            Image("wrong", bundle: .module)
+                                .resizable()
+                                .frame(width: 40, height: 40)
+                                .foregroundColor(.red)
+                            Text("Wrong")
+                                .foregroundColor(.red)
+                        }
+                    }
+                    Spacer()
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.4)) {
+                            offset = CGSize(width: 300, height: 0)
+                            changeColor(width: offset.width)
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            swipeCard(width: offset.width)
+                            offset = .zero
+                            changeColor(width: offset.width)
+                            isSwipedAway = true
+                        }
+                    }) {
+                        VStack {
+                            Image("correct", bundle: .module)
+                                .resizable()
+                                .frame(width: 40, height: 40)
+                                .foregroundColor(.green)
+                            Text("Right")
+                                .foregroundColor(.green)
+                        }
+                    }
+                }.padding(.horizontal, 80)
+
+                Spacer()
             }
         }
-    }
-    
     func swipeCard(width: CGFloat) {
         let currentCard = cards[currentIndex]
         let timeSpent = Date().timeIntervalSince(cardStartTime)
@@ -123,32 +236,4 @@ public struct FlashCardStackView: View {
             FlashCard(frontText: "front8", backText: "back")
         ]
     )
-}
-
-public struct DeckStats: Equatable, Hashable {
-    public let results: [FlashCardResult]
-    public var correctCount: Int { results.filter { $0.wasCorrect }.count }
-    public var incorrectCount: Int { results.filter { !$0.wasCorrect }.count }
-    public var totalCards: Int { results.count }
-    public var accuracy: Double {
-        guard totalCards > 0 else { return 0 }
-        return Double(correctCount) / Double(totalCards)
-    }
-}
-public struct FlashCardResult: Hashable {
-    public let card: FlashCard
-    public let wasCorrect: Bool
-    public let timeSpent: TimeInterval
-
-    public init(card: FlashCard, wasCorrect: Bool, timeSpent: TimeInterval) {
-        self.card = card
-        self.wasCorrect = wasCorrect
-        self.timeSpent = timeSpent
-    }
-}
-
-extension DeckStats {
-    public var incorrectCards: [FlashCard] {
-        results.filter { !$0.wasCorrect }.map { $0.card }
-    }
 }

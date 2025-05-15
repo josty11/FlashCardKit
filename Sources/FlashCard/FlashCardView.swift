@@ -43,5 +43,12 @@ public struct FlashCardView: View {
 }
 
 #Preview {
-    FlashCardView(flashcard: FlashCard(frontText: "front", backText: "back"), cardColor: .black, onSwiped: nil)
+    FlashCardView(
+        flashcard: FlashCard(
+            frontText: "front",
+            backText: "back"
+        ),
+        cardColor: .white,
+        onSwiped: nil
+    )
 }
